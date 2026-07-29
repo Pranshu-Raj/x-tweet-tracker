@@ -24,6 +24,9 @@ function createDb(): DatabaseSync {
       score        INTEGER,
       scheduled_at TEXT,
       posted_at    TEXT,
+      impressions  INTEGER,
+      likes        INTEGER,
+      replies      INTEGER,
       created_at   TEXT NOT NULL,
       updated_at   TEXT NOT NULL
     );
@@ -45,7 +48,30 @@ function createDb(): DatabaseSync {
       note       TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS ideas (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      body       TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS reply_log (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      handle     TEXT,
+      note       TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
+
+  // Additive migrations so pre-existing DBs gain the Phase 1.5 metric columns.
+  for (const col of ["impressions", "likes", "replies"]) {
+    try {
+      db.exec(`ALTER TABLE drafts ADD COLUMN ${col} INTEGER`);
+    } catch {
+      // column already exists — ignore
+    }
+  }
+
   return db;
 }
 

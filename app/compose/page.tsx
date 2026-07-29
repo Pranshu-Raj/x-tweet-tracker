@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Variant } from "@/lib/hooks";
 import type { ScoreResult } from "@/lib/score";
 import { postJson } from "../components/http";
@@ -23,6 +23,15 @@ export default function ComposePage() {
   const [copied, setCopied] = useState<number | null>(null);
   const [savedMsg, setSavedMsg] = useState<string>("");
   const [error, setError] = useState<string>("");
+
+  // Prefill from an idea sent over by the Idea Inbox (key: "cockpit:idea").
+  useEffect(() => {
+    const seed = sessionStorage.getItem("cockpit:idea");
+    if (seed) {
+      setRaw(seed);
+      sessionStorage.removeItem("cockpit:idea");
+    }
+  }, []);
 
   async function generate() {
     setError("");

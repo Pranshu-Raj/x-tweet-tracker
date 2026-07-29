@@ -1,13 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Target } from "@/lib/types";
+import type { Target, ReplyLogEntry } from "@/lib/types";
 import { REPLY_FRAMEWORKS } from "@/lib/replyFrameworks";
 import { getJson, postJson, patchJson, del } from "../components/http";
 import { isToday } from "@/lib/dates";
 
+const GOAL_KEY = "cockpit:replyGoal";
+const DEFAULT_GOAL = 10;
+
 export default function RepliesPage() {
   const [targets, setTargets] = useState<Target[]>([]);
+  const [replies, setReplies] = useState<ReplyLogEntry[]>([]);
+  const [ratio, setRatio] = useState<number | null>(null);
+  const [goal, setGoal] = useState(DEFAULT_GOAL);
+  const [logHandle, setLogHandle] = useState("");
+  const [logNote, setLogNote] = useState("");
   const [handle, setHandle] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -17,8 +25,14 @@ export default function RepliesPage() {
 
   async function load() {
     try {
-      const { targets } = await getJson<{ targets: Target[] }>("/api/targets");
-      setTargets(targets);
+      const [t, r, s] = await Promise.all([
+        getJson<{ targets: Target[] }>("/api/targets"),
+        getJson<{ replies: ReplyLogEntry[] }>("/api/replies"),
+        getJson<{ ratio: number | null }>("/api/streak"),
+      ]);
+      setTargets(t.targets);
+      setReplies(r.replies);
+      setRatio(s.ratio);
       setError("");
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
@@ -26,7 +40,50 @@ export default function RepliesPage() {
   }
   useEffect(() => {
     load();
+    const saved = localStorage.getItem(GOAL_KEY);
+    if (saved) setGoal(Number(saved) || DEFAULT_GOAL);
   }, []);
+
+  function updateGoal(v: number) {
+    const n = Math.max(1, Math.floor(v) || DEFAULT_GOAL);
+    setGoal(n);
+    localStorage.setItem(GOAL_KEY, String(n));
+  }
+
+  async function logReply() {
+    try {
+      await postJson("/api/replies", { handle: logHandle, note: logNote });
+      setLogHandle("");
+      setLogNote("");
+      setError("");
+      load();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  }
+
+  async function undoReply(id: number) {
+    try {
+      await del(`/api/replies/${id}`);
+      load();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  }
+
+  async function logReplyForTarget(t: Target) {
+    try {
+      await Promise.all([
+        postJson("/api/replies", { handle: t.handle }),
+        patchJson(`/api/targets/${t.id}`, { checked: true }),
+      ]);
+      load();
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    }
+  }
+
+  const repliesToday = replies.filter((r) => isToday(r.created_at)).length;
 
   async function addTarget() {
     if (!handle.trim()) return;
@@ -76,6 +133,82 @@ export default function RepliesPage() {
         </div>
       )}
 
+      <h2 className="section-title">Daily reply sprint</h2>
+      <div className="card stack">
+        <div className="row spread">
+          <span className="small muted">Today&apos;s replies</span>
+          <span className="mono" style={{ fontWeight: 600 }}>{repliesToday} / {goal}</span>
+        </div>
+        <div style={{ height: 6, background: "var(--surface-2)", borderRadius: 999, overflow: "hidden" }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${Math.min(100, (repliesToday / goal) * 100)}%`,
+              background: "var(--accent)",
+              transition: "width var(--dur) var(--ease)",
+            }}
+          />
+        </div>
+        <div className="row spread">
+          <label className="small muted row" style={{ gap: "var(--space-1)" }}>
+            Daily goal
+            <input
+              className="input"
+              type="number"
+              min={1}
+              value={goal}
+              onChange={(e) => updateGoal(Number(e.target.value))}
+              style={{ maxWidth: 80 }}
+            />
+          </label>
+          <span className="small muted">Ratio {ratio != null ? `${ratio}:1` : "—"}</span>
+        </div>
+        <span className="xs muted">Aim for 3:1+ replies-to-posts early on.</span>
+      </div>
+
+      <div className="card stack">
+        <span className="small muted">Log a reply</span>
+        <div className="row">
+          <input
+            className="input"
+            placeholder="@handle (optional)"
+            value={logHandle}
+            onChange={(e) => setLogHandle(e.target.value)}
+            style={{ maxWidth: 180 }}
+          />
+          <input
+            className="input"
+            placeholder="note (optional)"
+            value={logNote}
+            onChange={(e) => setLogNote(e.target.value)}
+          />
+          <button className="btn btn-accent" onClick={logReply}>
+            Log
+          </button>
+        </div>
+      </div>
+
+      {replies.length > 0 && (
+        <div className="stack">
+          {replies.slice(0, 15).map((r) => (
+            <div className="card row spread" key={r.id}>
+              <div>
+                {r.handle && (
+                  <span className="mono" style={{ fontWeight: 600 }}>
+                    {r.handle}
+                  </span>
+                )}
+                {r.note && <div className="muted small">{r.note}</div>}
+                <div className="muted xs">{new Date(r.created_at).toLocaleString()}</div>
+              </div>
+              <button className="btn btn-ghost btn-danger" onClick={() => undoReply(r.id)}>
+                Undo
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <h2 className="section-title">Target accounts</h2>
       <div className="card stack">
         <div className="row">
@@ -114,6 +247,9 @@ export default function RepliesPage() {
                 </div>
                 {t.note && <span className="muted small">{t.note}</span>}
                 <div className="row">
+                  <button className="btn btn-accent" onClick={() => logReplyForTarget(t)}>
+                    Log reply
+                  </button>
                   <button className="btn" onClick={() => toggleCheck(t)}>
                     {done ? "Uncheck" : "Checked today"}
                   </button>

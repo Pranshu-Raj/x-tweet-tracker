@@ -7,6 +7,8 @@ import { todayLocal, isToday } from "@/lib/dates";
 import DraftCard from "./components/DraftCard";
 
 const POLL_MS = 60_000;
+const GOAL_KEY = "cockpit:replyGoal";
+const DEFAULT_GOAL = 10;
 
 export default function TodayPage() {
   const [due, setDue] = useState<Draft[]>([]);
@@ -16,18 +18,24 @@ export default function TodayPage() {
   const [perm, setPerm] = useState<NotificationPermission>("default");
   const [error, setError] = useState("");
   const [today, setToday] = useState("");
+  const [streak, setStreak] = useState(0);
+  const [repliesToday, setRepliesToday] = useState(0);
+  const [goal, setGoal] = useState(DEFAULT_GOAL);
   const notified = useRef<Set<number>>(new Set());
 
   async function load() {
     try {
-      const [d, t, g] = await Promise.all([
+      const [d, t, g, s] = await Promise.all([
         getJson<{ drafts: Draft[] }>("/api/drafts?due=1"),
         getJson<{ targets: Target[] }>("/api/targets"),
         getJson<{ entries: FollowerEntry[] }>("/api/growth"),
+        getJson<{ streak: number; repliesToday: number }>("/api/streak"),
       ]);
       setDue(d.drafts);
       setTargets(t.targets);
       setEntries(g.entries);
+      setStreak(s.streak);
+      setRepliesToday(s.repliesToday);
       setError("");
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
@@ -37,6 +45,8 @@ export default function TodayPage() {
   useEffect(() => {
     load();
     setToday(new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }));
+    const saved = localStorage.getItem(GOAL_KEY);
+    if (saved) setGoal(Number(saved) || DEFAULT_GOAL);
     if (typeof Notification !== "undefined") setPerm(Notification.permission);
     const id = setInterval(load, POLL_MS);
     return () => clearInterval(id);
@@ -78,6 +88,13 @@ export default function TodayPage() {
       <p className="page-sub">
         {today && `${today} — `}what to post, who to reply to, and your daily follower check-in.
       </p>
+
+      <div className="row" style={{ marginBottom: "var(--space-4)", gap: "var(--space-3)" }}>
+        <span className="badge badge-good">🔥 {streak}-day streak</span>
+        <span className="muted small">
+          replies today {repliesToday}/{goal}
+        </span>
+      </div>
 
       {error && (
         <div className="card" style={{ borderColor: "var(--bad)", color: "var(--bad)" }}>

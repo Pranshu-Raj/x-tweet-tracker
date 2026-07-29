@@ -16,6 +16,13 @@ function fmt(iso: string | null): string {
   });
 }
 
+// 1200 → "1.2k", 1_500_000 → "1.5m". Compact metric badges.
+function abbrev(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "m";
+}
+
 // Default schedule suggestion: ~1 hour from now, as a datetime-local value.
 function defaultWhen(): string {
   const d = new Date(Date.now() + 60 * 60 * 1000);
@@ -30,6 +37,9 @@ export default function DraftCard({ draft, onMutate }: { draft: Draft; onMutate:
   const [when, setWhen] = useState(defaultWhen());
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [imp, setImp] = useState(draft.impressions == null ? "" : String(draft.impressions));
+  const [likes, setLikes] = useState(draft.likes == null ? "" : String(draft.likes));
+  const [replies, setReplies] = useState(draft.replies == null ? "" : String(draft.replies));
 
   const url = `/api/drafts/${draft.id}`;
 
@@ -64,6 +74,31 @@ export default function DraftCard({ draft, onMutate }: { draft: Draft; onMutate:
     if (confirm("Delete this draft permanently?")) run(() => del(url));
   };
 
+  // Blank → null (clears the metric); otherwise send the raw number.
+  const num = (s: string): number | null => (s.trim() === "" ? null : Number(s));
+  const saveMetrics = () =>
+    run(() =>
+      patchJson(url, { impressions: num(imp), likes: num(likes), replies: num(replies) })
+    );
+
+  const metricField = (label: string, value: string, set: (v: string) => void) => (
+    <label className="stack" style={{ gap: 4, width: 96 }}>
+      <span className="muted xs">{label}</span>
+      <input
+        className="input"
+        type="number"
+        min="0"
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => set(e.target.value)}
+        style={{ padding: "var(--space-1) var(--space-2)" }}
+      />
+    </label>
+  );
+
+  const hasMetrics =
+    draft.impressions != null || draft.likes != null || draft.replies != null;
+
   function copy() {
     navigator.clipboard.writeText(draft.body).then(() => {
       setCopied(true);
@@ -95,6 +130,32 @@ export default function DraftCard({ draft, onMutate }: { draft: Draft; onMutate:
         <p className="mono" style={{ whiteSpace: "pre-wrap" }}>
           {draft.body}
         </p>
+      )}
+
+      {draft.status === "posted" && (
+        <div className="stack">
+          {hasMetrics && (
+            <div className="row">
+              {draft.impressions != null && (
+                <span className="badge">{abbrev(draft.impressions)} imp</span>
+              )}
+              {draft.likes != null && (
+                <span className="badge">{abbrev(draft.likes)} likes</span>
+              )}
+              {draft.replies != null && (
+                <span className="badge">{abbrev(draft.replies)} replies</span>
+              )}
+            </div>
+          )}
+          <div className="row" style={{ alignItems: "flex-end" }}>
+            {metricField("Impressions", imp, setImp)}
+            {metricField("Likes", likes, setLikes)}
+            {metricField("Replies", replies, setReplies)}
+            <button className="btn btn-accent" onClick={saveMetrics} disabled={busy}>
+              Save metrics
+            </button>
+          </div>
+        </div>
       )}
 
       {scheduling && (

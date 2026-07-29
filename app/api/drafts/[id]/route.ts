@@ -19,8 +19,8 @@ export async function GET(_req: Request, ctx: Ctx) {
   return NextResponse.json({ draft });
 }
 
-// PATCH — partial update. Accepts any of: body, status, scheduled_at, posted_at, score.
-// Convenience: setting status='posted' with no posted_at stamps it now.
+// PATCH — partial update. Accepts any of: body, status, scheduled_at, posted_at, score,
+// impressions, likes, replies. Convenience: setting status='posted' with no posted_at stamps it now.
 export async function PATCH(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const existing = getDraft(Number(id));
@@ -58,6 +58,19 @@ export async function PATCH(req: Request, ctx: Ctx) {
         : null;
   }
 
+  // Manual per-post metrics (learning loop). Each: finite >= 0 → int, null clears.
+  for (const key of ["impressions", "likes", "replies"] as const) {
+    if (!(key in payload)) continue;
+    const v = payload[key];
+    if (v === null) {
+      next[key] = null;
+    } else if (typeof v === "number" && Number.isFinite(v) && v >= 0) {
+      next[key] = Math.round(v);
+    } else {
+      return NextResponse.json({ error: `invalid ${key}` }, { status: 400 });
+    }
+  }
+
   // Stamp posted_at when a draft is marked posted without an explicit time.
   if (next.status === "posted" && !next.posted_at) {
     next.posted_at = nowIso();
@@ -68,7 +81,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
   getDb()
     .prepare(
       `UPDATE drafts
-       SET body = ?, status = ?, score = ?, scheduled_at = ?, posted_at = ?, updated_at = ?
+       SET body = ?, status = ?, score = ?, scheduled_at = ?, posted_at = ?,
+           impressions = ?, likes = ?, replies = ?, updated_at = ?
        WHERE id = ?`
     )
     .run(
@@ -77,6 +91,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
       next.score,
       next.scheduled_at,
       next.posted_at,
+      next.impressions,
+      next.likes,
+      next.replies,
       next.updated_at,
       Number(id)
     );
