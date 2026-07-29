@@ -1,0 +1,27 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+/build
+
+# local data (SQLite database lives here — never commit it)
+/data/*
+!/data/.gitkeep
+
+# env
+.env
+.env.local
+.env*.local
+
+# misc
+*.log
+.DS_Store
+next-env.d.ts
+*.tsbuildinfo
+
+# planning & documentation — kept local, not committed (PRD, ARCHITECTURE, STATUS, etc.)
+*.md
+# to commit a specific one later, un-ignore it, e.g.:
+# !README.md

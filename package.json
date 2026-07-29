@@ -1,0 +1,22 @@
+{
+  "name": "x-growth-cockpit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal X (Twitter) growth cockpit: hook lab, posting queue, reminders, reply frameworks, growth tracking. Runs locally, no API keys.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.6.0"
+  }
+}
