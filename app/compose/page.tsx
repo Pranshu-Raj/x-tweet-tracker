@@ -23,6 +23,7 @@ export default function ComposePage() {
   const [copied, setCopied] = useState<number | null>(null);
   const [savedMsg, setSavedMsg] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [source, setSource] = useState<"ai" | "templates">("templates");
 
   // Prefill from an idea sent over by the Idea Inbox (key: "cockpit:idea").
   useEffect(() => {
@@ -38,8 +39,12 @@ export default function ComposePage() {
     if (!raw.trim()) return;
     setGenerating(true);
     try {
-      const { variants } = await postJson<{ variants: Variant[] }>("/api/variants", { text: raw });
-      setVariants(variants);
+      const res = await postJson<{ variants: Variant[]; source: "ai" | "templates" }>(
+        "/api/variants",
+        { text: raw }
+      );
+      setVariants(res.variants);
+      setSource(res.source);
     } catch (e) {
       setError(String(e instanceof Error ? e.message : e));
     } finally {
@@ -158,7 +163,12 @@ export default function ComposePage() {
 
       {variants.length > 0 && (
         <>
-          <h2 className="section-title">Variants</h2>
+          <h2 className="section-title">
+            Variants{" "}
+            <span className={`badge${source === "ai" ? " badge-good" : ""}`}>
+              {source === "ai" ? "AI" : "templates"}
+            </span>
+          </h2>
           <div className="stack">
             {variants.map((v, i) => (
               <div className="card stack" key={i}>
