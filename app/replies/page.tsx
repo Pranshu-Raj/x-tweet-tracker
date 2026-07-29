@@ -22,6 +22,10 @@ export default function RepliesPage() {
   const [tweet, setTweet] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [aiDrafts, setAiDrafts] = useState<string[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMsg, setAiMsg] = useState("");
+  const [aiCopied, setAiCopied] = useState<number | null>(null);
 
   async function load() {
     try {
@@ -116,6 +120,39 @@ export default function RepliesPage() {
     navigator.clipboard.writeText(framework.scaffold).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  async function draftWithAI() {
+    if (!tweet.trim()) return;
+    setAiLoading(true);
+    setAiMsg("");
+    setAiDrafts([]);
+    try {
+      const fw =
+        selected != null
+          ? `${REPLY_FRAMEWORKS[selected].name} — ${REPLY_FRAMEWORKS[selected].intent}`
+          : undefined;
+      const r = await postJson<{ drafts: string[]; source: "ai" | "off" | "error" }>(
+        "/api/reply-draft",
+        { tweet, framework: fw }
+      );
+      setAiDrafts(r.drafts);
+      if (r.source === "off")
+        setAiMsg("Set GROQ_API_KEY (or another backend) in .env.local to enable AI reply drafts.");
+      else if (r.source === "error")
+        setAiMsg("AI backend unavailable right now — try again, or use a framework scaffold above.");
+    } catch (e) {
+      setAiMsg(String(e instanceof Error ? e.message : e));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function copyDraft(text: string, i: number) {
+    navigator.clipboard.writeText(text).then(() => {
+      setAiCopied(i);
+      setTimeout(() => setAiCopied((c) => (c === i ? null : c)), 1500);
     });
   }
 
@@ -286,6 +323,18 @@ export default function RepliesPage() {
             </button>
           ))}
         </div>
+        <div className="row spread">
+          <span className="muted xs">
+            Pick a framework to bias the AI (optional), or draft straight from the tweet.
+          </span>
+          <button
+            className="btn btn-accent"
+            onClick={draftWithAI}
+            disabled={aiLoading || !tweet.trim()}
+          >
+            {aiLoading ? "Drafting…" : "✨ Draft replies with AI"}
+          </button>
+        </div>
       </div>
 
       {framework && (
@@ -313,6 +362,32 @@ export default function RepliesPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {aiMsg && <div className="card muted small">{aiMsg}</div>}
+      {aiDrafts.length > 0 && (
+        <>
+          <h2 className="section-title">
+            AI reply drafts <span className="badge badge-good">AI</span>
+          </h2>
+          <div className="stack">
+            {aiDrafts.map((d, i) => (
+              <div className="card stack" key={i}>
+                <p className="mono" style={{ whiteSpace: "pre-wrap" }}>
+                  {d}
+                </p>
+                <div className="row spread">
+                  <span className={`char-count${d.length > 280 ? " over" : ""}`}>
+                    {d.length}/280
+                  </span>
+                  <button className="btn" onClick={() => copyDraft(d, i)}>
+                    {aiCopied === i ? "Copied ✓" : "Copy"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
