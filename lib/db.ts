@@ -61,6 +61,20 @@ function createDb(): DatabaseSync {
       note       TEXT,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS daily_activity (
+      date       TEXT PRIMARY KEY,
+      tweets     INTEGER NOT NULL DEFAULT 0,
+      replies    INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS reply_capture (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      tweet      TEXT NOT NULL,
+      handle     TEXT,
+      created_at TEXT NOT NULL
+    );
   `);
 
   // Additive migrations so pre-existing DBs gain the Phase 1.5 metric columns.

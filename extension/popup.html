@@ -14,9 +14,12 @@
     <div class="muted">Cockpit app URL</div>
     <input id="appUrl" placeholder="http://localhost:3000" />
     <button id="cap">Capture followers from this page</button>
+    <button id="capAct" style="margin-top: 8px;">Capture today's tweets &amp; replies</button>
+    <button id="importTweets" style="margin-top: 8px;">Import my recent tweets + stats</button>
     <div id="status" class="muted"></div>
     <div class="muted" style="margin-top: 10px;">
-      On a tweet, use the injected “→ Cockpit” button to save its stats.
+      On your tweet, use “→ Cockpit” to save its stats; on someone else's, “Reply →” grabs it for a reply draft.
+      “Import my recent tweets” opens your profile and pulls the last 30 days of posts with their stats.
     </div>
     <script src="popup.js"></script>
   </body>

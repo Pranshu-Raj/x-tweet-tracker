@@ -44,3 +44,21 @@ export interface ReplyLogEntry {
   note: string | null;
   created_at: string; // ISO-8601 UTC
 }
+
+// Per-day activity scraped from X by the capture extension (Phase 4): how many
+// tweets + replies you actually made that day. Upserted by date.
+export interface DailyActivity {
+  date: string; // YYYY-MM-DD (local date)
+  tweets: number;
+  replies: number;
+  updated_at: string; // ISO-8601 UTC
+}
+
+// A tweet grabbed from X by the extension's "Reply →" button, waiting to be
+// picked up by the Replies page to prefill the AI reply-draft flow. One-shot.
+export interface ReplyCapture {
+  id: number;
+  tweet: string;
+  handle: string | null;
+  created_at: string; // ISO-8601 UTC
+}

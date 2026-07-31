@@ -48,6 +48,24 @@ export default function RepliesPage() {
     if (saved) setGoal(Number(saved) || DEFAULT_GOAL);
   }, []);
 
+  // Pick up a tweet grabbed by the extension's "Reply →" button (one-shot handoff).
+  useEffect(() => {
+    (async () => {
+      try {
+        const { capture } = await getJson<{
+          capture: { tweet: string; handle: string | null } | null;
+        }>("/api/reply-capture");
+        if (!capture) return;
+        setTweet(capture.tweet);
+        if (capture.handle) setLogHandle(capture.handle);
+        setAiMsg(`Loaded a tweet from ${capture.handle ?? "X"} — draft a reply below ✓`);
+        await del("/api/reply-capture"); // consume it so it doesn't reload next time
+      } catch {
+        // nothing captured / app offline — ignore
+      }
+    })();
+  }, []);
+
   function updateGoal(v: number) {
     const n = Math.max(1, Math.floor(v) || DEFAULT_GOAL);
     setGoal(n);

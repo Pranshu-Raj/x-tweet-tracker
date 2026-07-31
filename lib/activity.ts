@@ -37,8 +37,19 @@ export function computeActivity(): Activity {
     db.prepare("SELECT date FROM follower_log").all() as unknown as { date: string }[]
   ).map((r) => r.date);
 
-  // An "active day" = posted a draft, logged a reply, or logged followers.
+  // Daily activity scraped from X by the capture extension (tweets/replies per day).
+  const scraped = db
+    .prepare("SELECT date, tweets, replies FROM daily_activity").all() as unknown as {
+    date: string;
+    tweets: number;
+    replies: number;
+  }[];
+  const scrapedByDate = new Map(scraped.map((a) => [a.date, a]));
+
+  // An "active day" = posted a draft, logged a reply, logged followers, OR the
+  // capture extension recorded real X activity (tweets/replies) that day.
   const active = new Set<string>([...posted, ...replies, ...followers]);
+  for (const a of scraped) if (a.tweets > 0 || a.replies > 0) active.add(a.date);
 
   const today = todayLocal();
   const todayActive = active.has(today);
@@ -61,10 +72,20 @@ export function computeActivity(): Activity {
     c.setDate(c.getDate() - 1);
   }
 
-  const repliesToday = replies.filter((d) => d === today).length;
+  // Today's counts take the larger of what the app logged vs. what X actually
+  // shows (scraped) — so real activity wins without double-counting either source.
+  const todayScraped = scrapedByDate.get(today);
+  const repliesToday = Math.max(
+    replies.filter((d) => d === today).length,
+    todayScraped?.replies ?? 0
+  );
+  const postsToday = Math.max(
+    posted.filter((d) => d === today).length,
+    todayScraped?.tweets ?? 0
+  );
+
   const replies7d = replies.filter((d) => last7.has(d)).length;
   const posts7d = posted.filter((d) => last7.has(d)).length;
-  const postsToday = posted.filter((d) => d === today).length;
   const ratio = posts7d === 0 ? null : Math.round((replies7d / posts7d) * 10) / 10;
 
   return { streak, todayActive, repliesToday, replies7d, posts7d, postsToday, ratio };
