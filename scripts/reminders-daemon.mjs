@@ -34,6 +34,7 @@ const MIN_PRIORITY = ["high", "medium", "low"].includes(process.env.COCKPIT_MIN_
   : "medium";
 const QUIET_START = clampNum(process.env.COCKPIT_QUIET_START, 22, 0, 23);
 const QUIET_END = clampNum(process.env.COCKPIT_QUIET_END, 8, 0, 23);
+const TOKEN = process.env.COCKPIT_TOKEN || ""; // required only if the app is hosted with auth
 
 const RANK = { high: 3, medium: 2, low: 1 };
 
@@ -116,7 +117,10 @@ async function tick() {
 
   let payload;
   try {
-    const res = await fetch(`${APP_URL}/api/reminders?goal=${GOAL}`);
+    const res = await fetch(
+      `${APP_URL}/api/reminders?goal=${GOAL}`,
+      TOKEN ? { headers: { "x-cockpit-token": TOKEN } } : undefined
+    );
     if (!res.ok) {
       console.error(`[${ts()}] app returned HTTP ${res.status}`);
       return;

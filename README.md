@@ -87,6 +87,8 @@ npm start       # serve it on http://localhost:3000
 | `npm run dev` | Start the dev server with hot reload |
 | `npm run build` | Create an optimized production build |
 | `npm start` | Serve the production build |
+| `npm test` | Run the unit tests (`node:test`) |
+| `npm run reminders` | Run the always-on reminders daemon (native desktop toasts) |
 
 ## Usage
 
@@ -140,6 +142,30 @@ ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 The AI layer is pluggable (Anthropic API **or** a local model) and is not needed for any current feature.
+
+## Hosting (optional)
+
+The app runs fully local by default. To use it from your phone or any machine — and let the extension/daemon push from anywhere — deploy to **[Vercel](https://vercel.com)** with a **[Turso](https://turso.tech)** database and a shared-secret token. **Local dev is unchanged** (offline `node:sqlite`); the data layer switches to Turso only when `TURSO_DATABASE_URL` is set, so there's zero native compilation anywhere (`@libsql/client/web` is pure JS).
+
+**Environment variables** (see [`.env.example`](.env.example)):
+
+| Var | Local dev | Production |
+|-----|-----------|-----------|
+| `TURSO_DATABASE_URL` | blank → local `node:sqlite` | your Turso libSQL URL |
+| `TURSO_AUTH_TOKEN` | blank | your Turso token |
+| `COCKPIT_TOKEN` | blank → auth off | a long random secret |
+| `GROQ_API_KEY` / `GROQ_MODEL` | optional | optional |
+
+**Deploy steps:**
+
+1. Create a Turso DB (`turso db create x-cockpit`) and grab its URL + token.
+2. Push this repo to GitHub, import it into Vercel.
+3. In Vercel → Settings → Environment Variables, add the vars above.
+4. Deploy. The schema auto-creates on first request (`CREATE TABLE IF NOT EXISTS`).
+5. Open your Vercel URL → `/login` → enter your `COCKPIT_TOKEN`.
+6. In the extension popup, set the app URL to your Vercel domain and paste the token. For the daemon: `COCKPIT_TOKEN=… COCKPIT_URL=https://your-app.vercel.app npm run reminders`.
+
+**Auth:** with `COCKPIT_TOKEN` set, every page + API requires it — the browser via an httpOnly cookie (the `/login` page), the extension + daemon via the `x-cockpit-token` header. Unset locally = no auth. **CI** (`.github/workflows/ci.yml`) runs type-check + tests + build on every push/PR; Vercel adds a preview deploy per PR and production on `main`.
 
 ## Roadmap
 

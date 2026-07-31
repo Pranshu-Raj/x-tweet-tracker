@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb, nowIso } from "@/lib/db";
+import { get, run, nowIso } from "@/lib/db";
 import type { Draft, DraftStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -8,13 +8,13 @@ const STATUSES: DraftStatus[] = ["draft", "queued", "posted", "archived"];
 
 type Ctx = { params: Promise<{ id: string }> };
 
-function getDraft(id: number): Draft | undefined {
-  return getDb().prepare("SELECT * FROM drafts WHERE id = ?").get(id) as unknown as Draft | undefined;
+async function getDraft(id: number): Promise<Draft | undefined> {
+  return get<Draft>("SELECT * FROM drafts WHERE id = ?", [id]);
 }
 
 export async function GET(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const draft = getDraft(Number(id));
+  const draft = await getDraft(Number(id));
   if (!draft) return NextResponse.json({ error: "not found" }, { status: 404 });
   return NextResponse.json({ draft });
 }
@@ -23,7 +23,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 // impressions, likes, replies. Convenience: setting status='posted' with no posted_at stamps it now.
 export async function PATCH(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const existing = getDraft(Number(id));
+  const existing = await getDraft(Number(id));
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const payload = await req.json().catch(() => null);
@@ -78,14 +78,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   next.updated_at = nowIso();
 
-  getDb()
-    .prepare(
-      `UPDATE drafts
-       SET body = ?, status = ?, score = ?, scheduled_at = ?, posted_at = ?,
-           impressions = ?, likes = ?, replies = ?, updated_at = ?
-       WHERE id = ?`
-    )
-    .run(
+  await run(
+    `UPDATE drafts
+     SET body = ?, status = ?, score = ?, scheduled_at = ?, posted_at = ?,
+         impressions = ?, likes = ?, replies = ?, updated_at = ?
+     WHERE id = ?`,
+    [
       next.body,
       next.status,
       next.score,
@@ -95,15 +93,16 @@ export async function PATCH(req: Request, ctx: Ctx) {
       next.likes,
       next.replies,
       next.updated_at,
-      Number(id)
-    );
+      Number(id),
+    ]
+  );
 
-  return NextResponse.json({ draft: getDraft(Number(id)) });
+  return NextResponse.json({ draft: await getDraft(Number(id)) });
 }
 
 export async function DELETE(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const info = getDb().prepare("DELETE FROM drafts WHERE id = ?").run(Number(id));
+  const info = await run("DELETE FROM drafts WHERE id = ?", [Number(id)]);
   if (info.changes === 0) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }

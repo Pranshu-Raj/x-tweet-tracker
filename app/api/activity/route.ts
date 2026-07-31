@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb, nowIso } from "@/lib/db";
+import { all, get, run, nowIso } from "@/lib/db";
 import { todayLocal } from "@/lib/dates";
 import type { DailyActivity } from "@/lib/types";
 
@@ -14,13 +14,10 @@ function intOrNull(v: unknown): number | null {
 
 // GET /api/activity — full daily series (oldest first) + today's row (or null).
 export async function GET() {
-  const db = getDb();
-  const entries = db
-    .prepare("SELECT * FROM daily_activity ORDER BY date ASC")
-    .all() as unknown as DailyActivity[];
-  const today = (db
-    .prepare("SELECT * FROM daily_activity WHERE date = ?")
-    .get(todayLocal()) as unknown as DailyActivity | undefined) ?? null;
+  const entries = await all<DailyActivity>("SELECT * FROM daily_activity ORDER BY date ASC");
+  const today =
+    (await get<DailyActivity>("SELECT * FROM daily_activity WHERE date = ?", [todayLocal()])) ??
+    null;
   return NextResponse.json({ entries, today });
 }
 
@@ -39,16 +36,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "tweets and replies must be numbers ≥ 0" }, { status: 400 });
   }
 
-  const db = getDb();
-  db.prepare(
+  await run(
     `INSERT INTO daily_activity (date, tweets, replies, updated_at)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(date) DO UPDATE SET
-       tweets = excluded.tweets, replies = excluded.replies, updated_at = excluded.updated_at`
-  ).run(date, tweets, replies, nowIso());
+       tweets = excluded.tweets, replies = excluded.replies, updated_at = excluded.updated_at`,
+    [date, tweets, replies, nowIso()]
+  );
 
-  const entry = db
-    .prepare("SELECT * FROM daily_activity WHERE date = ?")
-    .get(date) as unknown as DailyActivity;
+  const entry = await get<DailyActivity>("SELECT * FROM daily_activity WHERE date = ?", [date]);
   return NextResponse.json({ entry });
 }

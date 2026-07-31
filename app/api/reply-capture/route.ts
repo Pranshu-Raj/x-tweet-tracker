@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb, nowIso } from "@/lib/db";
+import { get, run, nowIso } from "@/lib/db";
 import type { ReplyCapture } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -7,9 +7,8 @@ export const runtime = "nodejs";
 // GET /api/reply-capture — the most recent captured tweet (or null). The Replies
 // page peeks this on mount to prefill the reply-draft flow, then DELETEs it.
 export async function GET() {
-  const row = (getDb()
-    .prepare("SELECT * FROM reply_capture ORDER BY id DESC LIMIT 1")
-    .get() as unknown as ReplyCapture | undefined) ?? null;
+  const row =
+    (await get<ReplyCapture>("SELECT * FROM reply_capture ORDER BY id DESC LIMIT 1")) ?? null;
   return NextResponse.json({ capture: row });
 }
 
@@ -26,19 +25,19 @@ export async function POST(req: Request) {
       ? payload.handle.trim().replace(/^@+/, "").replace(/^/, "@")
       : null;
 
-  const db = getDb();
-  db.prepare("DELETE FROM reply_capture").run();
-  const info = db
-    .prepare("INSERT INTO reply_capture (tweet, handle, created_at) VALUES (?, ?, ?)")
-    .run(tweet, handle, nowIso());
-  const capture = db
-    .prepare("SELECT * FROM reply_capture WHERE id = ?")
-    .get(Number(info.lastInsertRowid)) as unknown as ReplyCapture;
+  await run("DELETE FROM reply_capture");
+  const info = await run(
+    "INSERT INTO reply_capture (tweet, handle, created_at) VALUES (?, ?, ?)",
+    [tweet, handle, nowIso()]
+  );
+  const capture = await get<ReplyCapture>("SELECT * FROM reply_capture WHERE id = ?", [
+    info.lastInsertRowid,
+  ]);
   return NextResponse.json({ capture }, { status: 201 });
 }
 
 // DELETE /api/reply-capture — consume/clear the slot after the page reads it.
 export async function DELETE() {
-  getDb().prepare("DELETE FROM reply_capture").run();
+  await run("DELETE FROM reply_capture");
   return NextResponse.json({ ok: true });
 }

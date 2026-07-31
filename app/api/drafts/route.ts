@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb, nowIso } from "@/lib/db";
+import { all, get, run, nowIso } from "@/lib/db";
 import type { Draft } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -9,30 +9,27 @@ export const runtime = "nodejs";
 //   ?due=1                       → queued drafts whose scheduled time has passed
 //   (default)                    → all non-archived, newest first
 export async function GET(req: Request) {
-  const db = getDb();
   const url = new URL(req.url);
   const due = url.searchParams.get("due");
   const status = url.searchParams.get("status");
 
   let drafts: Draft[];
   if (due === "1") {
-    drafts = db
-      .prepare(
-        `SELECT * FROM drafts
-         WHERE status = 'queued' AND scheduled_at IS NOT NULL AND scheduled_at <= ?
-         ORDER BY scheduled_at ASC`
-      )
-      .all(nowIso()) as unknown as Draft[];
+    drafts = await all<Draft>(
+      `SELECT * FROM drafts
+       WHERE status = 'queued' AND scheduled_at IS NOT NULL AND scheduled_at <= ?
+       ORDER BY scheduled_at ASC`,
+      [nowIso()]
+    );
   } else if (status) {
     const wanted = status.split(",").map((s) => s.trim()).filter(Boolean);
     const placeholders = wanted.map(() => "?").join(",");
-    drafts = db
-      .prepare(`SELECT * FROM drafts WHERE status IN (${placeholders}) ORDER BY created_at DESC`)
-      .all(...wanted) as unknown as Draft[];
+    drafts = await all<Draft>(
+      `SELECT * FROM drafts WHERE status IN (${placeholders}) ORDER BY created_at DESC`,
+      wanted
+    );
   } else {
-    drafts = db
-      .prepare("SELECT * FROM drafts WHERE status != 'archived' ORDER BY created_at DESC")
-      .all() as unknown as Draft[];
+    drafts = await all<Draft>("SELECT * FROM drafts WHERE status != 'archived' ORDER BY created_at DESC");
   }
 
   return NextResponse.json({ drafts });
@@ -51,17 +48,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "body is required" }, { status: 400 });
   }
 
-  const db = getDb();
   const now = nowIso();
-  const info = db
-    .prepare(
-      "INSERT INTO drafts (body, status, score, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-    )
-    .run(body, "draft", score, now, now);
+  const info = await run(
+    "INSERT INTO drafts (body, status, score, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    [body, "draft", score, now, now]
+  );
 
-  const draft = db
-    .prepare("SELECT * FROM drafts WHERE id = ?")
-    .get(Number(info.lastInsertRowid)) as unknown as Draft;
+  const draft = await get<Draft>("SELECT * FROM drafts WHERE id = ?", [info.lastInsertRowid]);
 
   return NextResponse.json({ draft }, { status: 201 });
 }

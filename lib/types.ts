@@ -62,3 +62,18 @@ export interface ReplyCapture {
   handle: string | null;
   created_at: string; // ISO-8601 UTC
 }
+
+// A snapshot of your X profile scraped by the extension, for the Coach page.
+// Only the latest is kept.
+export interface Profile {
+  id: number;
+  name: string | null;
+  handle: string | null;
+  bio: string | null;
+  location: string | null;
+  url: string | null;
+  pinned_tweet: string | null;
+  following: number | null;
+  followers: number | null;
+  captured_at: string; // ISO-8601 UTC
+}

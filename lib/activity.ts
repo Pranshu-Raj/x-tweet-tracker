@@ -2,7 +2,7 @@
 // two never drift. Server-only (reads the DB). Day buckets are LOCAL: timestamps
 // are stored UTC, but "did I do something today" is a local-calendar question.
 
-import { getDb } from "./db";
+import { all } from "./db";
 import { todayLocal } from "./dates";
 
 /** A Date → local YYYY-MM-DD. */
@@ -22,28 +22,21 @@ export interface Activity {
 }
 
 /** Consecutive-active-day streak plus 7-day and today cadence counts. */
-export function computeActivity(): Activity {
-  const db = getDb();
-
+export async function computeActivity(): Promise<Activity> {
   const posted = (
-    db.prepare("SELECT posted_at FROM drafts WHERE posted_at IS NOT NULL").all() as unknown as {
-      posted_at: string;
-    }[]
+    await all<{ posted_at: string }>("SELECT posted_at FROM drafts WHERE posted_at IS NOT NULL")
   ).map((r) => fmtLocal(new Date(r.posted_at)));
-  const replies = (
-    db.prepare("SELECT created_at FROM reply_log").all() as unknown as { created_at: string }[]
-  ).map((r) => fmtLocal(new Date(r.created_at)));
-  const followers = (
-    db.prepare("SELECT date FROM follower_log").all() as unknown as { date: string }[]
-  ).map((r) => r.date);
+  const replies = (await all<{ created_at: string }>("SELECT created_at FROM reply_log")).map((r) =>
+    fmtLocal(new Date(r.created_at))
+  );
+  const followers = (await all<{ date: string }>("SELECT date FROM follower_log")).map(
+    (r) => r.date
+  );
 
   // Daily activity scraped from X by the capture extension (tweets/replies per day).
-  const scraped = db
-    .prepare("SELECT date, tweets, replies FROM daily_activity").all() as unknown as {
-    date: string;
-    tweets: number;
-    replies: number;
-  }[];
+  const scraped = await all<{ date: string; tweets: number; replies: number }>(
+    "SELECT date, tweets, replies FROM daily_activity"
+  );
   const scrapedByDate = new Map(scraped.map((a) => [a.date, a]));
 
   // An "active day" = posted a draft, logged a reply, logged followers, OR the

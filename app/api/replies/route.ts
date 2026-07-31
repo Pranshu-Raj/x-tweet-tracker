@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb, nowIso } from "@/lib/db";
+import { all, get, run, nowIso } from "@/lib/db";
 import type { ReplyLogEntry } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -11,9 +11,7 @@ function normalizeHandle(raw: string): string {
 
 // GET /api/replies — logged replies, newest first.
 export async function GET() {
-  const replies = getDb()
-    .prepare("SELECT * FROM reply_log ORDER BY created_at DESC")
-    .all() as unknown as ReplyLogEntry[];
+  const replies = await all<ReplyLogEntry>("SELECT * FROM reply_log ORDER BY created_at DESC");
   return NextResponse.json({ replies });
 }
 
@@ -25,12 +23,13 @@ export async function POST(req: Request) {
   const note =
     typeof payload?.note === "string" && payload.note.trim() ? payload.note.trim() : null;
 
-  const db = getDb();
-  const info = db
-    .prepare("INSERT INTO reply_log (handle, note, created_at) VALUES (?, ?, ?)")
-    .run(handle, note, nowIso());
-  const reply = db
-    .prepare("SELECT * FROM reply_log WHERE id = ?")
-    .get(Number(info.lastInsertRowid)) as unknown as ReplyLogEntry;
+  const info = await run("INSERT INTO reply_log (handle, note, created_at) VALUES (?, ?, ?)", [
+    handle,
+    note,
+    nowIso(),
+  ]);
+  const reply = await get<ReplyLogEntry>("SELECT * FROM reply_log WHERE id = ?", [
+    info.lastInsertRowid,
+  ]);
   return NextResponse.json({ reply }, { status: 201 });
 }

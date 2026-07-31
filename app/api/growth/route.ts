@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb, nowIso } from "@/lib/db";
+import { all, get, run, nowIso } from "@/lib/db";
 import { todayLocal } from "@/lib/dates";
 import type { FollowerEntry } from "@/lib/types";
 
@@ -9,9 +9,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // GET /api/growth — full series, oldest first.
 export async function GET() {
-  const entries = getDb()
-    .prepare("SELECT * FROM follower_log ORDER BY date ASC")
-    .all() as unknown as FollowerEntry[];
+  const entries = await all<FollowerEntry>("SELECT * FROM follower_log ORDER BY date ASC");
   return NextResponse.json({ entries });
 }
 
@@ -29,13 +27,13 @@ export async function POST(req: Request) {
   const note =
     typeof payload?.note === "string" && payload.note.trim() ? payload.note.trim() : null;
 
-  const db = getDb();
-  db.prepare(
+  await run(
     `INSERT INTO follower_log (date, followers, note, created_at)
      VALUES (?, ?, ?, ?)
-     ON CONFLICT(date) DO UPDATE SET followers = excluded.followers, note = excluded.note`
-  ).run(date, Math.round(followers), note, nowIso());
+     ON CONFLICT(date) DO UPDATE SET followers = excluded.followers, note = excluded.note`,
+    [date, Math.round(followers), note, nowIso()]
+  );
 
-  const entry = db.prepare("SELECT * FROM follower_log WHERE date = ?").get(date) as unknown as FollowerEntry;
+  const entry = await get<FollowerEntry>("SELECT * FROM follower_log WHERE date = ?", [date]);
   return NextResponse.json({ entry });
 }

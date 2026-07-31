@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb, nowIso } from "@/lib/db";
+import { all, get, run, nowIso } from "@/lib/db";
 import type { Target } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -11,9 +11,7 @@ function normalizeHandle(raw: string): string {
 
 // GET /api/targets — all targets, newest first.
 export async function GET() {
-  const targets = getDb()
-    .prepare("SELECT * FROM targets ORDER BY created_at DESC")
-    .all() as unknown as Target[];
+  const targets = await all<Target>("SELECT * FROM targets ORDER BY created_at DESC");
   return NextResponse.json({ targets });
 }
 
@@ -28,14 +26,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "handle is required" }, { status: 400 });
   }
 
-  const db = getDb();
   try {
-    const info = db
-      .prepare("INSERT INTO targets (handle, note, created_at) VALUES (?, ?, ?)")
-      .run(handle, note, nowIso());
-    const target = db
-      .prepare("SELECT * FROM targets WHERE id = ?")
-      .get(Number(info.lastInsertRowid)) as unknown as Target;
+    const info = await run("INSERT INTO targets (handle, note, created_at) VALUES (?, ?, ?)", [
+      handle,
+      note,
+      nowIso(),
+    ]);
+    const target = await get<Target>("SELECT * FROM targets WHERE id = ?", [
+      info.lastInsertRowid,
+    ]);
     return NextResponse.json({ target }, { status: 201 });
   } catch (e) {
     if (String(e).includes("UNIQUE")) {

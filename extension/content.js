@@ -45,6 +45,32 @@
     return null;
   }
 
+  // Scrape your profile header for the Coach: name, bio, link, pinned tweet, counts.
+  function scrapeProfile(me) {
+    const text = (sel) => document.querySelector(sel)?.textContent?.trim() || null;
+    const nameBlock = text(S.userName) || "";
+    const name = nameBlock.replace(new RegExp("@" + me + "\\s*$", "i"), "").trim() || null;
+    const urlEl = document.querySelector(S.userUrl);
+    let pinnedTweet = null;
+    for (const art of document.querySelectorAll(S.tweet)) {
+      const ctx = art.querySelector(S.socialContext)?.textContent || "";
+      if (/pinned/i.test(ctx)) {
+        pinnedTweet = (art.querySelector(S.tweetText)?.textContent || "").trim() || null;
+        break;
+      }
+    }
+    return {
+      name,
+      handle: me,
+      bio: text(S.userDescription),
+      location: text(S.userLocation),
+      url: urlEl ? urlEl.getAttribute("href") || urlEl.textContent?.trim() || null : null,
+      pinnedTweet,
+      following: parseCount(text(S.followingLink)),
+      followers: readFollowerCount(),
+    };
+  }
+
   // Ownership guard — only ever capture YOUR followers / YOUR tweets.
   function handleFromHref(href) {
     try {
@@ -315,6 +341,20 @@
         sendResponse({ ok: true });
         resumeImport();
       });
+      return true;
+    }
+    if (req && req.type === "capture-profile") {
+      const me = ownHandle();
+      if (!me) {
+        sendResponse({ ok: false, error: "open x.com (logged in) first" });
+        return true;
+      }
+      if (currentProfileHandle() !== me) {
+        sendResponse({ ok: false, error: "open YOUR profile (x.com/" + me + ")" });
+        return true;
+      }
+      send({ type: "profile", profile: scrapeProfile(me) });
+      sendResponse({ ok: true });
       return true;
     }
     if (req && req.type === "capture-followers") {

@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/queue", label: "Queue" },
   { href: "/replies", label: "Replies" },
   { href: "/growth", label: "Growth" },
+  { href: "/coach", label: "Coach" },
   { href: "/top", label: "Top" },
 ];
 

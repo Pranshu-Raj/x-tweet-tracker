@@ -1,11 +1,16 @@
 const urlInput = document.getElementById("appUrl");
+const tokenInput = document.getElementById("token");
 const status = document.getElementById("status");
 
-chrome.storage.sync.get("appUrl", ({ appUrl }) => {
+chrome.storage.sync.get(["appUrl", "cockpitToken"], ({ appUrl, cockpitToken }) => {
   urlInput.value = appUrl || "http://localhost:3000";
+  tokenInput.value = cockpitToken || "";
 });
 urlInput.addEventListener("change", () =>
   chrome.storage.sync.set({ appUrl: urlInput.value.trim() })
+);
+tokenInput.addEventListener("change", () =>
+  chrome.storage.sync.set({ cockpitToken: tokenInput.value.trim() })
 );
 
 document.getElementById("cap").addEventListener("click", async () => {
@@ -48,5 +53,18 @@ document.getElementById("importTweets").addEventListener("click", async () => {
       res && res.ok
         ? "importing… your profile opens and scans; watch for the toast ✓"
         : "failed: " + ((res && res.error) || "unknown");
+  });
+});
+
+document.getElementById("capProfile").addEventListener("click", async () => {
+  status.textContent = "capturing profile…";
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  chrome.tabs.sendMessage(tab.id, { type: "capture-profile" }, (res) => {
+    if (chrome.runtime.lastError) {
+      status.textContent = "open YOUR X profile tab first";
+      return;
+    }
+    status.textContent =
+      res && res.ok ? "profile sent → open Coach ✓" : "failed: " + ((res && res.error) || "unknown");
   });
 });

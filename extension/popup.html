@@ -13,9 +13,12 @@
   <body>
     <div class="muted">Cockpit app URL</div>
     <input id="appUrl" placeholder="http://localhost:3000" />
+    <div class="muted">Access token (only if hosted)</div>
+    <input id="token" type="password" placeholder="blank for localhost" />
     <button id="cap">Capture followers from this page</button>
     <button id="capAct" style="margin-top: 8px;">Capture today's tweets &amp; replies</button>
     <button id="importTweets" style="margin-top: 8px;">Import my recent tweets + stats</button>
+    <button id="capProfile" style="margin-top: 8px;">Capture profile (for Coach)</button>
     <div id="status" class="muted"></div>
     <div class="muted" style="margin-top: 10px;">
       On your tweet, use “→ Cockpit” to save its stats; on someone else's, “Reply →” grabs it for a reply draft.

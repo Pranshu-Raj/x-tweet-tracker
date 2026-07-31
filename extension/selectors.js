@@ -17,4 +17,12 @@ self.COCKPIT_SELECTORS = {
   analyticsLink: 'a[href$="/analytics"]', // views / impressions link on a tweet
   ownProfileLink: 'a[data-testid="AppTabBar_Profile_Link"]', // left-nav "Profile" → href is /<your-handle>
   tweetAuthorHandle: '[data-testid="User-Name"] a[href^="/"]', // author link in a tweet header
+
+  // Profile header (for the Coach — verified live 2026-07-31):
+  userName: '[data-testid="UserName"]', // "Display Name@handle" concatenated
+  userDescription: '[data-testid="UserDescription"]', // bio (absent when empty)
+  userLocation: '[data-testid="UserLocation"]',
+  userUrl: '[data-testid="UserUrl"]',
+  followingLink: 'a[href$="/following"]', // text is the following count
+  socialContext: '[data-testid="socialContext"]', // "Pinned" / "You reposted" banner on a tweet
 };
