@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import type { Draft, Target, FollowerEntry } from "@/lib/types";
+import type { Reminder, ReminderPriority } from "@/lib/reminders";
 import { getJson, patchJson, postJson } from "./components/http";
 import { todayLocal, isToday } from "@/lib/dates";
 import DraftCard from "./components/DraftCard";
@@ -10,7 +12,14 @@ const POLL_MS = 60_000;
 const GOAL_KEY = "cockpit:replyGoal";
 const DEFAULT_GOAL = 10;
 
+const DOT: Record<ReminderPriority, string> = {
+  high: "var(--bad)",
+  medium: "var(--warn)",
+  low: "var(--muted)",
+};
+
 export default function TodayPage() {
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [due, setDue] = useState<Draft[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
   const [entries, setEntries] = useState<FollowerEntry[]>([]);
@@ -21,16 +30,23 @@ export default function TodayPage() {
   const [streak, setStreak] = useState(0);
   const [repliesToday, setRepliesToday] = useState(0);
   const [goal, setGoal] = useState(DEFAULT_GOAL);
-  const notified = useRef<Set<number>>(new Set());
+  const notified = useRef<Set<string>>(new Set());
 
   async function load() {
     try {
-      const [d, t, g, s] = await Promise.all([
+      // Read the goal fresh each poll so an unfinished-render closure never goes stale.
+      const goalNow =
+        typeof localStorage !== "undefined"
+          ? Number(localStorage.getItem(GOAL_KEY)) || DEFAULT_GOAL
+          : DEFAULT_GOAL;
+      const [rem, d, t, g, s] = await Promise.all([
+        getJson<{ reminders: Reminder[] }>(`/api/reminders?goal=${goalNow}`),
         getJson<{ drafts: Draft[] }>("/api/drafts?due=1"),
         getJson<{ targets: Target[] }>("/api/targets"),
         getJson<{ entries: FollowerEntry[] }>("/api/growth"),
         getJson<{ streak: number; repliesToday: number }>("/api/streak"),
       ]);
+      setReminders(rem.reminders);
       setDue(d.drafts);
       setTargets(t.targets);
       setEntries(g.entries);
@@ -52,16 +68,16 @@ export default function TodayPage() {
     return () => clearInterval(id);
   }, []);
 
-  // Fire a browser notification once per newly-due draft (tab must be open).
+  // Fire a browser notification once per newly-surfaced high-priority reminder
+  // (tab must be open — the reminders daemon covers the tab-closed case).
   useEffect(() => {
     if (perm !== "granted" || typeof Notification === "undefined") return;
-    for (const d of due) {
-      if (!notified.current.has(d.id)) {
-        notified.current.add(d.id);
-        new Notification("Time to post ⏰", { body: d.body.slice(0, 100) });
-      }
+    for (const r of reminders) {
+      if (r.priority !== "high" || notified.current.has(r.id)) continue;
+      notified.current.add(r.id);
+      new Notification(r.title, { body: r.body });
     }
-  }, [due, perm]);
+  }, [reminders, perm]);
 
   async function enableReminders() {
     if (typeof Notification === "undefined") return;
@@ -102,15 +118,15 @@ export default function TodayPage() {
         </div>
       )}
 
-      {/* Reminders */}
+      {/* Notification permission */}
       <div className="card row spread">
         <div>
-          <div style={{ fontWeight: 600 }}>Reminders</div>
+          <div style={{ fontWeight: 600 }}>Desktop reminders</div>
           <div className="muted xs">
             {perm === "granted"
-              ? "On — notifies you here while this tab is open."
-              : "Off — enable to get nudged when a queued tweet is due."}{" "}
-            Tab-open only in V1.
+              ? "On — pings you here for urgent items while this tab is open."
+              : "Off — enable to get pinged for due tweets and streak risk."}{" "}
+            For alerts when the browser is closed, run the reminders daemon (npm run reminders).
           </div>
         </div>
         {perm !== "granted" && (
@@ -119,6 +135,46 @@ export default function TodayPage() {
           </button>
         )}
       </div>
+
+      {/* Prioritized reminders — the single source of truth for what needs you. */}
+      <h2 className="section-title">
+        Reminders <span className="muted small">· {reminders.length}</span>
+      </h2>
+      {reminders.length === 0 ? (
+        <div className="empty">All clear — nothing needs you right now ✓</div>
+      ) : (
+        <div className="stack">
+          {reminders.map((r) => (
+            <Link
+              key={r.id}
+              href={r.href}
+              className="card row spread"
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              <div className="row" style={{ gap: "var(--space-3)", alignItems: "flex-start" }}>
+                <span
+                  aria-hidden
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: DOT[r.priority],
+                    flex: "0 0 auto",
+                    marginTop: 6,
+                  }}
+                />
+                <div>
+                  <div style={{ fontWeight: 600 }}>{r.title}</div>
+                  <div className="muted small">{r.body}</div>
+                </div>
+              </div>
+              <span className="muted small" style={{ flex: "0 0 auto" }}>
+                Go →
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Due now */}
       <h2 className="section-title">

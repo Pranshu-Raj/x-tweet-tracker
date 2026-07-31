@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font: 13px system-ui; width: 250px; padding: 12px; margin: 0; background: #16181c; color: #e7e9ea; }
+      .muted { color: #8b98a5; font-size: 11px; }
+      input { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #333; border-radius: 6px; background: #000; color: #fff; margin: 4px 0 10px; }
+      button { width: 100%; padding: 8px; border: 0; border-radius: 6px; background: #c6f24e; color: #1a1a1a; font-weight: 600; cursor: pointer; }
+      #status { margin-top: 8px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="muted">Cockpit app URL</div>
+    <input id="appUrl" placeholder="http://localhost:3000" />
+    <button id="cap">Capture followers from this page</button>
+    <div id="status" class="muted"></div>
+    <div class="muted" style="margin-top: 10px;">
+      On a tweet, use the injected “→ Cockpit” button to save its stats.
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

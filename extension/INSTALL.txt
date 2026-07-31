@@ -1,0 +1,25 @@
+X Growth Cockpit — Capture extension (Manifest V3; Chrome / Edge / Brave)
+
+SETUP
+1. Start the app:   npm run dev      (serves http://localhost:3000)
+2. Open chrome://extensions
+3. Toggle "Developer mode" (top-right)
+4. Click "Load unpacked" and select THIS  extension/  folder
+5. (Optional) open the extension popup and set the app URL if not localhost:3000
+
+USE
+- Follower count: open YOUR X profile → click the extension icon →
+  "Capture followers from this page"  (writes to the Growth tracker)
+- Tweet stats: on any of your own tweets, click the injected "→ Cockpit"
+  button in the action bar  (matches an existing draft & saves its metrics,
+  or creates a posted tweet)
+
+HOW IT WORKS
+- The content script only reads the page; the service worker makes the calls
+  to the Cockpit app (localhost is CORS-exempt via host_permissions), so the
+  app itself needs no changes.
+
+⚠️ SELECTORS
+X changes its page markup periodically. If capture stops working, the fix is
+almost always in  selectors.js  (one file). See the PHASE 0 note at the top of
+that file — verify each selector against the live site.

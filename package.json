@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "reminders": "node scripts/reminders-daemon.mjs",
+    "test": "node --test"
   },
   "dependencies": {
     "next": "^15.0.0",

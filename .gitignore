@@ -21,6 +21,9 @@
 next-env.d.ts
 *.tsbuildinfo
 
+# reminders daemon local state (Phase 3)
+/scripts/.reminders-state.json
+
 # planning & documentation — kept local, not committed (PRD, ARCHITECTURE, STATUS, etc.)
 *.md
 # ...except the README, which we DO commit:
